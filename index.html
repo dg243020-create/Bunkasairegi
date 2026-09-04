@@ -1094,9 +1094,15 @@
   async function loadData() {
     const sharedRecords = await firebaseGet('records');
     if (Array.isArray(sharedRecords)) records = sharedRecords;
-    const shiftStr = localGet('karaage-shift');
-    if (shiftStr) {
-      try { shift = JSON.parse(shiftStr); } catch (e) { /* keep default */ }
+    const sharedShift = await firebaseGet('shift');
+    if (sharedShift && typeof sharedShift === 'object') {
+      shift = sharedShift;
+      localSet('karaage-shift', JSON.stringify(shift));
+    } else {
+      const shiftStr = localGet('karaage-shift');
+      if (shiftStr) {
+        try { shift = JSON.parse(shiftStr); } catch (e) { /* keep default */ }
+      }
     }
     await loadMenu();
     normalizeShift();
@@ -1118,6 +1124,16 @@
   }
   async function saveShift() {
     localSet('karaage-shift', JSON.stringify(shift));
+    await firebaseSet('shift', shift);
+  }
+  async function refreshShiftFromShared() {
+    const sharedShift = await firebaseGet('shift');
+    if (sharedShift && typeof sharedShift === 'object') {
+      shift = sharedShift;
+      localSet('karaage-shift', JSON.stringify(shift));
+      normalizeShift();
+      renderShift();
+    }
   }
   let saveShiftTimer = null;
   function saveShiftDebounced() {
@@ -1135,6 +1151,8 @@
     btn.addEventListener('click', () => {
       goToPage(btn.dataset.page);
       if (btn.dataset.page === 'records') refreshRecordsFromShared();
+      if (btn.dataset.page === 'shift') refreshShiftFromShared();
+      if (btn.dataset.page === 'regi') refreshMenuFromShared();
     });
   });
 
@@ -1447,6 +1465,12 @@
   let editingMenuId = null;
 
   async function loadMenu() {
+    const sharedMenu = await firebaseGet('menu');
+    if (Array.isArray(sharedMenu) && sharedMenu.length > 0) {
+      MENU = sharedMenu;
+      localSet('karaage-menu', JSON.stringify(MENU));
+      return;
+    }
     const menuStr = localGet('karaage-menu');
     if (menuStr) {
       try {
@@ -1457,6 +1481,17 @@
   }
   async function saveMenu() {
     localSet('karaage-menu', JSON.stringify(MENU));
+    await firebaseSet('menu', MENU);
+  }
+  async function refreshMenuFromShared() {
+    const sharedMenu = await firebaseGet('menu');
+    if (Array.isArray(sharedMenu) && sharedMenu.length > 0) {
+      MENU = sharedMenu;
+      localSet('karaage-menu', JSON.stringify(MENU));
+      MENU.forEach(m => { if (!state.items[m.id]) state.items[m.id] = { qty: 0 }; });
+      buildMenuGrid();
+      render();
+    }
   }
 
   function openMenuAddModal() {
