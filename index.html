@@ -342,6 +342,23 @@
   #page-records { flex-direction: column; padding: 20px 26px; overflow-y: auto; }
   .records-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
   .records-header h2 { font-size: 18px; margin: 0; }
+  .records-title-row { display: flex; align-items: center; gap: 10px; }
+  .refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gold-dark);
+    cursor: pointer;
+  }
+  .refresh-btn:active { transform: scale(0.95); background: var(--panel-2); }
+  .refresh-btn .icon { display: inline-block; transition: transform 0.5s ease; }
+  .refresh-btn.spinning .icon { transform: rotate(360deg); }
   .summary-cards { display: flex; gap: 10px; }
   .summary-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 16px; min-width: 130px; text-align: right; }
   .summary-card .lbl { font-size: 11px; opacity: 0.6; }
@@ -792,7 +809,10 @@
   <!-- ================= RECORDS PAGE ================= -->
   <div class="page" id="page-records">
     <div class="records-header">
-      <h2>会計記録</h2>
+      <div class="records-title-row">
+        <h2>会計記録</h2>
+        <div class="refresh-btn" id="recordsRefreshBtn"><span class="icon">↻</span><span>更新</span></div>
+      </div>
       <div class="summary-cards">
         <div class="summary-card">
           <div class="lbl">売り上げ合計</div>
@@ -1122,6 +1142,24 @@
       renderRecords();
     }
   }
+
+  document.getElementById('recordsRefreshBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('recordsRefreshBtn');
+    btn.classList.add('spinning');
+    await refreshRecordsFromShared();
+    setTimeout(() => btn.classList.remove('spinning'), 500);
+  });
+
+  let recordsAutoRefreshTimer = null;
+  function startRecordsAutoRefresh() {
+    if (recordsAutoRefreshTimer) return;
+    recordsAutoRefreshTimer = setInterval(() => {
+      if (document.getElementById('page-records').classList.contains('active')) {
+        refreshRecordsFromShared();
+      }
+    }, 5000);
+  }
+  startRecordsAutoRefresh();
   async function saveShift() {
     localSet('karaage-shift', JSON.stringify(shift));
     await firebaseSet('shift', shift);
