@@ -365,6 +365,27 @@
   .summary-card .val { font-size: 20px; font-weight: 800; color: var(--gold-dark); }
   .summary-card.change .val { color: var(--green-dark); }
   .record-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .records-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 16px;
+    padding-bottom: 10px;
+  }
+  .page-nav-btn {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gold-dark);
+    cursor: pointer;
+  }
+  .page-nav-btn:active { transform: scale(0.95); background: var(--panel-2); }
+  .page-nav-btn.disabled { opacity: 0.35; pointer-events: none; }
+  .page-indicator { font-size: 13px; opacity: 0.75; min-width: 60px; text-align: center; }
   .record-card {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -815,6 +836,10 @@
       </div>
       <div class="summary-cards">
         <div class="summary-card">
+          <div class="lbl">件数</div>
+          <div class="val" id="sumCount">0件</div>
+        </div>
+        <div class="summary-card">
           <div class="lbl">売り上げ合計</div>
           <div class="val" id="sumTotal">0円</div>
         </div>
@@ -833,6 +858,7 @@
     <div class="record-list" id="recordList">
       <div class="empty-state">まだ会計記録がありません</div>
     </div>
+    <div class="records-pagination" id="recordsPagination"></div>
   </div>
 
   <!-- ================= SHIFT PAGE ================= -->
@@ -1331,6 +1357,7 @@
         staff: currentStaff
       });
       saveRecords();
+      recordsPage = 0;
       renderRecords();
       if (tutorialActive) handleTutorialAction('confirm');
     }
@@ -1340,12 +1367,22 @@
   });
 
   /* ---------- RECORDS ---------- */
+  const RECORDS_PER_PAGE = 20;
+  let recordsPage = 0;
+
   function renderRecords() {
     const list = document.getElementById('recordList');
+    const totalPages = Math.max(1, Math.ceil(records.length / RECORDS_PER_PAGE));
+    if (recordsPage >= totalPages) recordsPage = totalPages - 1;
+    if (recordsPage < 0) recordsPage = 0;
+
     if (records.length === 0) {
       list.innerHTML = '<div class="empty-state">まだ会計記録がありません</div>';
     } else {
-      list.innerHTML = records.map((r, idx) => {
+      const start = recordsPage * RECORDS_PER_PAGE;
+      const pageRecords = records.slice(start, start + RECORDS_PER_PAGE);
+      list.innerHTML = pageRecords.map((r, i) => {
+        const idx = start + i;
         const d = new Date(r.time);
         const dateStr = d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
         const timeStr = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
@@ -1368,8 +1405,25 @@
         card.addEventListener('click', () => openEditModal(parseInt(card.dataset.idx, 10)));
       });
     }
+
+    const pagination = document.getElementById('recordsPagination');
+    if (records.length === 0 || totalPages <= 1) {
+      pagination.innerHTML = '';
+    } else {
+      pagination.innerHTML = `
+        <div class="page-nav-btn${recordsPage === 0 ? ' disabled' : ''}" id="recordsPrevBtn">‹ 前へ</div>
+        <div class="page-indicator">${recordsPage + 1} / ${totalPages}</div>
+        <div class="page-nav-btn${recordsPage >= totalPages - 1 ? ' disabled' : ''}" id="recordsNextBtn">次へ ›</div>
+      `;
+      const prevBtn = document.getElementById('recordsPrevBtn');
+      const nextBtn = document.getElementById('recordsNextBtn');
+      if (prevBtn) prevBtn.addEventListener('click', () => { recordsPage--; renderRecords(); });
+      if (nextBtn) nextBtn.addEventListener('click', () => { recordsPage++; renderRecords(); });
+    }
+
     const sumTotal = records.reduce((sum, r) => sum + (typeof r.total === 'number' ? r.total : 0), 0);
     const sumChange = records.reduce((sum, r) => sum + (typeof r.change === 'number' && r.change > 0 ? r.change : 0), 0);
+    document.getElementById('sumCount').textContent = fmt(records.length) + '件';
     document.getElementById('sumTotal').textContent = fmt(sumTotal) + '円';
     document.getElementById('sumChange').textContent = fmt(sumChange) + '円';
   }
@@ -1380,7 +1434,7 @@
     const rec = records[idx];
     modalItems = {};
     MENU.forEach(m => { modalItems[m.name] = { price: m.price, qty: 0 }; });
-    rec.items.forEach(it => {
+    (rec.items || []).forEach(it => {
       if (!modalItems[it.name]) modalItems[it.name] = { price: it.price, qty: 0 };
       modalItems[it.name].qty = it.qty;
     });
