@@ -1448,6 +1448,23 @@
   }
   startChatAutoRefresh();
 
+  let chatDeleteTapCount = 0;
+  let chatDeleteTapTimeout = null;
+  document.querySelector('.tab-btn[data-page="chat"]').addEventListener('click', () => {
+    chatDeleteTapCount++;
+    clearTimeout(chatDeleteTapTimeout);
+    chatDeleteTapTimeout = setTimeout(() => { chatDeleteTapCount = 0; }, 10000);
+    if (chatDeleteTapCount >= 10) {
+      chatDeleteTapCount = 0;
+      clearTimeout(chatDeleteTapTimeout);
+      if (confirm('連絡のメッセージを全て削除します。この操作は取り消せません。本当によろしいですか？')) {
+        chatMessages = [];
+        saveChat();
+        renderChat(true);
+      }
+    }
+  });
+
   function goToPage(pageName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === pageName));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
