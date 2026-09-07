@@ -928,6 +928,14 @@
 </div>
 
 <script>
+  window.addEventListener('error', (e) => {
+    alert('エラー発生:\n' + e.message + '\n(行:' + e.lineno + ')');
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    alert('非同期エラー発生:\n' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+  });
+</script>
+<script>
   window.addEventListener('error', (e) => { e.preventDefault(); });
   window.addEventListener('unhandledrejection', (e) => { e.preventDefault(); });
 
