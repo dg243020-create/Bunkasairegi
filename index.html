@@ -928,14 +928,6 @@
 </div>
 
 <script>
-  window.addEventListener('error', (e) => {
-    alert('エラー発生:\n' + e.message + '\n(行:' + e.lineno + ')');
-  });
-  window.addEventListener('unhandledrejection', (e) => {
-    alert('非同期エラー発生:\n' + (e.reason && e.reason.message ? e.reason.message : e.reason));
-  });
-</script>
-<script>
   window.addEventListener('error', (e) => { e.preventDefault(); });
   window.addEventListener('unhandledrejection', (e) => { e.preventDefault(); });
 
@@ -1202,7 +1194,7 @@
     });
   });
 
-  function fmt(n) { return n.toLocaleString('ja-JP'); }
+  function fmt(n) { return (typeof n === 'number' && !isNaN(n) ? n : 0).toLocaleString('ja-JP'); }
   function getTotal() {
     return Object.entries(state.items).reduce((sum, [id, it]) => {
       const m = findMenuItem(id);
@@ -1357,7 +1349,7 @@
         const d = new Date(r.time);
         const dateStr = d.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' });
         const timeStr = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-        const itemsStr = r.items.map(i => `${i.name}×${i.qty}`).join('、') || 'なし';
+        const itemsStr = Array.isArray(r.items) ? (r.items.map(i => `${i.name}×${i.qty}`).join('、') || 'なし') : 'なし';
         const staffStr = r.staff ? `　担当:${r.staff}` : '';
         return `
           <div class="record-card" data-idx="${idx}">
@@ -1376,8 +1368,8 @@
         card.addEventListener('click', () => openEditModal(parseInt(card.dataset.idx, 10)));
       });
     }
-    const sumTotal = records.reduce((sum, r) => sum + r.total, 0);
-    const sumChange = records.reduce((sum, r) => sum + (r.change > 0 ? r.change : 0), 0);
+    const sumTotal = records.reduce((sum, r) => sum + (typeof r.total === 'number' ? r.total : 0), 0);
+    const sumChange = records.reduce((sum, r) => sum + (typeof r.change === 'number' && r.change > 0 ? r.change : 0), 0);
     document.getElementById('sumTotal').textContent = fmt(sumTotal) + '円';
     document.getElementById('sumChange').textContent = fmt(sumChange) + '円';
   }
