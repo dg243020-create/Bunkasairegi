@@ -495,6 +495,92 @@
     outline: none;
   }
   .shift-hint { font-size: 12px; opacity: 0.55; margin-top: 10px; }
+
+  /* ---------- CHAT ---------- */
+  #page-chat { flex-direction: column; padding: 20px 26px; }
+  .chat-wrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+  .chat-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 10px;
+  }
+  .chat-msg { display: flex; flex-direction: column; align-items: flex-start; max-width: 78%; }
+  .chat-msg .chat-meta { font-size: 11px; opacity: 0.6; margin-bottom: 3px; padding: 0 4px; }
+  .chat-msg .chat-bubble {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px 14px 14px 4px;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    word-break: break-word;
+    white-space: pre-wrap;
+  }
+  .chat-msg .chat-bubble img {
+    display: block;
+    max-width: 220px;
+    max-height: 220px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .chat-empty { text-align: center; opacity: 0.5; font-size: 13px; margin-top: 30px; }
+  .chat-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  .chat-input-row input[type="text"] {
+    flex: 1 1 auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: var(--cream);
+    font-family: inherit;
+  }
+  .chat-icon-btn {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  .chat-icon-btn:active { transform: scale(0.93); background: var(--panel-2); }
+  .chat-send-btn {
+    background: var(--gold-dark);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 0 18px;
+    height: 42px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    flex: 0 0 auto;
+  }
+  .chat-send-btn:active { transform: scale(0.95); }
+  .chat-image-viewer {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+  }
+  .chat-image-viewer.active { display: flex; }
+  .chat-image-viewer img { max-width: 92%; max-height: 92%; border-radius: 8px; }
   .del-row-btn {
     background: rgba(200,75,49,0.16);
     border: none;
@@ -775,6 +861,7 @@
       <button class="tab-btn active" data-page="regi">レジ</button>
       <button class="tab-btn" data-page="records">記録</button>
       <button class="tab-btn" data-page="shift">シフト表</button>
+      <button class="tab-btn" data-page="chat">連絡</button>
     </div>
   </div>
 
@@ -875,6 +962,25 @@
     <div class="shift-hint">セルをタップして時間帯・役割名・担当者を入力・編集できます。</div>
   </div>
 
+  <!-- ================= CHAT PAGE ================= -->
+  <div class="page" id="page-chat">
+    <div class="chat-wrap">
+      <div class="chat-list" id="chatList"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chatTextInput" placeholder="連絡事項を入力…" />
+        <button class="chat-icon-btn" id="chatCameraBtn" title="写真を撮る">📷</button>
+        <button class="chat-icon-btn" id="chatUploadBtn" title="写真を選ぶ">🖼️</button>
+        <button class="chat-send-btn" id="chatSendBtn">送信</button>
+      </div>
+      <input type="file" accept="image/*" capture="environment" id="chatCameraInput" style="display:none;">
+      <input type="file" accept="image/*" id="chatUploadInput" style="display:none;">
+    </div>
+  </div>
+
+</div>
+
+<div class="chat-image-viewer" id="chatImageViewer">
+  <img id="chatImageViewerImg" src="" alt="">
 </div>
 
 <!-- ================= TUTORIAL BANNER ================= -->
@@ -987,6 +1093,7 @@
   };
   let editingRecordIndex = null;
   let modalItems = {};
+  let chatMessages = [];
   let currentStaff = '';
 
   /* ---------- TUTORIAL MODE ---------- */
@@ -1150,6 +1257,8 @@
         try { shift = JSON.parse(shiftStr); } catch (e) { /* keep default */ }
       }
     }
+    const sharedChat = await firebaseGet('chat');
+    if (Array.isArray(sharedChat)) chatMessages = sharedChat;
     await loadMenu();
     normalizeShift();
     MENU.forEach(m => { if (!state.items[m.id]) state.items[m.id] = { qty: 0 }; });
@@ -1157,6 +1266,7 @@
     render();
     renderRecords();
     renderShift();
+    renderChat(true);
   }
   async function saveRecords() {
     await firebaseSet('records', records);
@@ -1205,6 +1315,139 @@
     saveShiftTimer = setTimeout(() => { saveShift(); }, 600);
   }
 
+  /* ---------- CHAT ---------- */
+  async function saveChat() {
+    await firebaseSet('chat', chatMessages);
+  }
+
+  function isNearChatBottom() {
+    const list = document.getElementById('chatList');
+    return (list.scrollHeight - list.scrollTop - list.clientHeight) < 80;
+  }
+
+  function renderChat(forceScroll) {
+    const list = document.getElementById('chatList');
+    const wasNearBottom = forceScroll || isNearChatBottom();
+    if (!Array.isArray(chatMessages) || chatMessages.length === 0) {
+      list.innerHTML = '<div class="chat-empty">まだ連絡はありません</div>';
+    } else {
+      list.innerHTML = chatMessages.map(m => {
+        const d = new Date(m.time);
+        const timeStr = d.toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        const nameStr = m.name || '匿名';
+        const bodyHtml = m.image
+          ? `<img src="${m.image}" class="chat-image">`
+          : escapeHtml(m.text || '');
+        return `
+          <div class="chat-msg">
+            <div class="chat-meta">${nameStr}　${timeStr}</div>
+            <div class="chat-bubble">${bodyHtml}</div>
+          </div>
+        `;
+      }).join('');
+      list.querySelectorAll('.chat-image').forEach(img => {
+        img.addEventListener('click', () => {
+          document.getElementById('chatImageViewerImg').src = img.src;
+          document.getElementById('chatImageViewer').classList.add('active');
+        });
+      });
+    }
+    if (wasNearBottom) list.scrollTop = list.scrollHeight;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  async function refreshChatFromShared(forceScroll) {
+    const sharedChat = await firebaseGet('chat');
+    if (Array.isArray(sharedChat)) {
+      if (sharedChat.length !== chatMessages.length) {
+        chatMessages = sharedChat;
+        renderChat(forceScroll);
+      } else {
+        chatMessages = sharedChat;
+      }
+    }
+  }
+
+  function sendChatMessage(msg) {
+    msg.name = currentStaff || '匿名';
+    msg.time = Date.now();
+    chatMessages.push(msg);
+    saveChat();
+    renderChat(true);
+  }
+
+  document.getElementById('chatSendBtn').addEventListener('click', () => {
+    const input = document.getElementById('chatTextInput');
+    const val = input.value.trim();
+    if (val === '') return;
+    sendChatMessage({ text: val });
+    input.value = '';
+  });
+  document.getElementById('chatTextInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('chatSendBtn').click();
+  });
+
+  function resizeImageFile(file, callback) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 900;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * (MAX / w)); w = MAX; }
+          else { w = Math.round(w * (MAX / h)); h = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        callback(canvas.toDataURL('image/jpeg', 0.6));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  document.getElementById('chatCameraBtn').addEventListener('click', () => {
+    document.getElementById('chatCameraInput').click();
+  });
+  document.getElementById('chatUploadBtn').addEventListener('click', () => {
+    document.getElementById('chatUploadInput').click();
+  });
+  function handleChatFileInput(inputEl) {
+    inputEl.addEventListener('change', () => {
+      const file = inputEl.files[0];
+      if (!file) return;
+      resizeImageFile(file, (dataUrl) => {
+        sendChatMessage({ image: dataUrl });
+      });
+      inputEl.value = '';
+    });
+  }
+  handleChatFileInput(document.getElementById('chatCameraInput'));
+  handleChatFileInput(document.getElementById('chatUploadInput'));
+
+  document.getElementById('chatImageViewer').addEventListener('click', () => {
+    document.getElementById('chatImageViewer').classList.remove('active');
+  });
+
+  let chatAutoRefreshTimer = null;
+  function startChatAutoRefresh() {
+    if (chatAutoRefreshTimer) return;
+    chatAutoRefreshTimer = setInterval(() => {
+      if (document.getElementById('page-chat').classList.contains('active')) {
+        refreshChatFromShared(false);
+      }
+    }, 5000);
+  }
+  startChatAutoRefresh();
+
   function goToPage(pageName) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.page === pageName));
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -1217,6 +1460,7 @@
       if (btn.dataset.page === 'records') refreshRecordsFromShared();
       if (btn.dataset.page === 'shift') refreshShiftFromShared();
       if (btn.dataset.page === 'regi') refreshMenuFromShared();
+      if (btn.dataset.page === 'chat') refreshChatFromShared(true);
     });
   });
 
