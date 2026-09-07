@@ -765,7 +765,7 @@
 <div class="app" id="appRoot">
 
   <div class="header">
-    <div class="brand">
+    <div class="brand" id="brandLogo">
       <span class="kanji">からあげ屋</span>
       <span class="sub">文化祭 模擬店</span>
     </div>
@@ -1369,6 +1369,26 @@
   /* ---------- RECORDS ---------- */
   const RECORDS_PER_PAGE = 20;
   let recordsPage = 0;
+
+  let bulkDeleteTapCount = 0;
+  let bulkDeleteTapTimeout = null;
+
+  document.getElementById('brandLogo').addEventListener('click', () => {
+    if (!document.getElementById('page-records').classList.contains('active')) return;
+    bulkDeleteTapCount++;
+    clearTimeout(bulkDeleteTapTimeout);
+    bulkDeleteTapTimeout = setTimeout(() => { bulkDeleteTapCount = 0; }, 10000);
+    if (bulkDeleteTapCount >= 10) {
+      bulkDeleteTapCount = 0;
+      clearTimeout(bulkDeleteTapTimeout);
+      if (confirm('全ての会計記録を削除します。この操作は取り消せません。本当によろしいですか？')) {
+        records = [];
+        saveRecords();
+        recordsPage = 0;
+        renderRecords();
+      }
+    }
+  });
 
   function renderRecords() {
     const list = document.getElementById('recordList');
