@@ -1100,12 +1100,22 @@
   let tutorialActive = false;
   let tutorialStep = 0; // 0-3: guided actions, 4: finished (viewing record)
   let tutorialRecordRef = null;
-  const TUTORIAL_TEXTS = [
-    '① メニューの一番上「からあげ 3個」の＋ボタンを1回タップしてください',
-    '② 上から2番目「からあげ 5個」の＋ボタンを1回タップしてください',
-    '③ お預かりは750円です。テンキーで「7」「5」「0」と入力してください',
-    '④ 内容を確認して、下のお釣りエリア(会計確定ボタン)をタップしてください'
-  ];
+  function getTutorialReceivedTotal() {
+    const p0 = MENU[0] ? MENU[0].price : 0;
+    const p1 = MENU[1] ? MENU[1].price : 0;
+    return p0 + p1;
+  }
+  function getTutorialTexts() {
+    const name0 = MENU[0] ? MENU[0].name : '1番目のメニュー';
+    const name1 = MENU[1] ? MENU[1].name : '2番目のメニュー';
+    const total = getTutorialReceivedTotal();
+    return [
+      `① メニューの一番上「${name0}」の＋ボタンを1回タップしてください`,
+      `② 上から2番目「${name1}」の＋ボタンを1回タップしてください`,
+      `③ お預かりは${total}円です。テンキーで「${total}」と入力してください`,
+      '④ 内容を確認して、下のお釣りエリア(会計確定ボタン)をタップしてください'
+    ];
+  }
 
   const CORRECT_PASSWORD = 'yt0304';
 
@@ -2057,7 +2067,7 @@
 
     if (tutorialStep < 4) {
       progress.textContent = 'ステップ ' + (tutorialStep + 1) + '/4';
-      text.textContent = TUTORIAL_TEXTS[tutorialStep];
+      text.textContent = getTutorialTexts()[tutorialStep];
       cancelBtn.style.display = 'inline-block';
       endBtn.style.display = 'none';
 
@@ -2116,7 +2126,7 @@
     } else if (tutorialStep === 1 && action === 'plus' && MENU[1] && id === MENU[1].id) {
       tutorialStep = 2;
       updateTutorialUI();
-    } else if (tutorialStep === 2 && action === 'digit' && state.received === '750') {
+    } else if (tutorialStep === 2 && action === 'digit' && state.received === String(getTutorialReceivedTotal())) {
       tutorialStep = 3;
       updateTutorialUI();
     } else if (tutorialStep === 3 && action === 'confirm') {
