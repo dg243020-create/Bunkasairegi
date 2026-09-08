@@ -165,15 +165,15 @@
     border-radius: 14px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
     padding: 14px 18px;
     position: relative;
+    gap: 14px;
   }
-  .menu-item .name-price { display: flex; align-items: baseline; gap: 12px; }
+  .menu-item .name-price { display: flex; align-items: baseline; gap: 12px; flex: 1 1 auto; min-width: 0; }
   .menu-item .count { font-size: 16px; font-weight: 700; color: var(--cream); }
-  .menu-item .price { font-size: 20px; font-weight: 800; color: var(--gold-dark); }
+  .menu-item .price { font-size: 20px; font-weight: 800; color: var(--gold-dark); white-space: nowrap; }
   .menu-item .price::after { content: '円'; font-size: 13px; font-weight: 500; margin-left: 2px; opacity: 0.7; }
-  .menu-item .qty-row { display: flex; align-items: center; gap: 16px; }
+  .menu-item .qty-row { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
   .qty-btn {
     width: 46px;
     height: 46px;
