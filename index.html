@@ -468,6 +468,90 @@
   }
   .kitchen-empty-state { text-align: center; opacity: 0.5; padding: 60px 0; font-size: 14px; }
 
+  /* ================= HANDOFF PAGE ================= */
+  #page-handoff { flex-direction: column; padding: 20px 26px; overflow-y: auto; }
+  .handoff-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .handoff-header h2 { font-size: 18px; margin: 0; }
+  .handoff-count-badge {
+    font-size: 13px;
+    font-weight: 800;
+    color: #FFFFFF;
+    background: var(--green-dark);
+    padding: 6px 16px;
+    border-radius: 999px;
+  }
+  .handoff-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 4px;
+  }
+  .handoff-card {
+    background: #FFFDF3;
+    border: 3px solid var(--red);
+    border-radius: 16px;
+    padding: 16px 18px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+  }
+  @keyframes handoffPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(200,75,49,0.55); }
+    50% { box-shadow: 0 0 0 10px rgba(200,75,49,0); }
+  }
+  .handoff-card { animation: handoffPulse 1.1s ease-in-out infinite; }
+  .handoff-card:active { transform: scale(0.96); opacity: 0.7; }
+  .handoff-card .handoff-ready-badge {
+    align-self: flex-start;
+    font-size: 11px;
+    font-weight: 800;
+    color: #FFFFFF;
+    background: var(--red);
+    padding: 3px 10px;
+    border-radius: 999px;
+  }
+  .handoff-card .handoff-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .handoff-card .order-num {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--gold-dark);
+  }
+  .handoff-card .order-elapsed {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--red-dark);
+    opacity: 0.8;
+  }
+  .handoff-card .handoff-items { display: flex; flex-direction: column; gap: 4px; }
+  .handoff-card .handoff-item-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .handoff-card .handoff-item-row .handoff-qty { color: var(--red-dark); }
+  .handoff-card .handoff-tap-hint {
+    font-size: 11px;
+    opacity: 0.55;
+    text-align: right;
+    margin-top: 2px;
+    font-weight: 700;
+    color: var(--green-dark);
+  }
+  .handoff-empty-state { text-align: center; opacity: 0.5; padding: 60px 0; font-size: 14px; }
+  .record-card .delivered-badge {
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--green-dark);
+    margin-top: 2px;
+  }
+
   /* ================= SHIFT PAGE ================= */
   #page-shift { flex-direction: column; padding: 20px 26px; overflow-y: auto; }
   .shift-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
@@ -922,6 +1006,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-page="regi">レジ</button>
       <button class="tab-btn" data-page="kitchen">厨房</button>
+      <button class="tab-btn" data-page="handoff">受け渡し</button>
       <button class="tab-btn" data-page="records">記録</button>
       <button class="tab-btn" data-page="shift">シフト表</button>
       <button class="tab-btn" data-page="chat">連絡</button>
@@ -984,6 +1069,15 @@
       <span class="kitchen-count-badge" id="kitchenCountBadge">未作成 0件</span>
     </div>
     <div class="kitchen-grid" id="kitchenGrid"></div>
+  </div>
+
+  <!-- ================= HANDOFF PAGE ================= -->
+  <div class="page" id="page-handoff">
+    <div class="handoff-header">
+      <h2>受け渡し</h2>
+      <span class="handoff-count-badge" id="handoffCountBadge">未受渡 0件</span>
+    </div>
+    <div class="handoff-grid" id="handoffGrid"></div>
   </div>
 
   <!-- ================= RECORDS PAGE ================= -->
@@ -1146,6 +1240,7 @@
   let records = [];
   let kitchenOrders = [];
   let kitchenNextNumber = 1;
+  let handoffOrders = [];
   function makeDefaultDay() {
     return {
       columns: ['レジ', 'キッチン', '', ''],
@@ -1336,6 +1431,10 @@
       kitchenOrders = Array.isArray(sharedKitchen.orders) ? sharedKitchen.orders : [];
       kitchenNextNumber = typeof sharedKitchen.nextNumber === 'number' ? sharedKitchen.nextNumber : 1;
     }
+    const sharedHandoff = await firebaseGet('handoff');
+    if (sharedHandoff && typeof sharedHandoff === 'object') {
+      handoffOrders = Array.isArray(sharedHandoff.orders) ? sharedHandoff.orders : [];
+    }
     const sharedShift = await firebaseGet('shift');
     if (sharedShift && typeof sharedShift === 'object') {
       shift = sharedShift;
@@ -1355,6 +1454,7 @@
     render();
     renderRecords();
     renderKitchen();
+    renderHandoff();
     renderShift();
     renderChat(true);
   }
@@ -1388,6 +1488,7 @@
   startRecordsAutoRefresh();
 
   /* ---------- KITCHEN ---------- */
+  function newOrderId() { return 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   async function saveKitchen() {
     await firebaseSet('kitchen', { orders: kitchenOrders, nextNumber: kitchenNextNumber });
   }
@@ -1399,12 +1500,11 @@
       renderKitchen();
     }
   }
-  function newKitchenOrderId() { return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-  function addKitchenOrder(entries) {
+  function addKitchenOrder(entries, orderId) {
     const number = kitchenNextNumber;
     kitchenNextNumber += 1;
     kitchenOrders.push({
-      id: newKitchenOrderId(),
+      id: orderId,
       number,
       time: Date.now(),
       items: entries.map(([id, it]) => {
@@ -1417,9 +1517,12 @@
   }
   function completeKitchenOrder(id, number) {
     if (!confirm('注文 #' + number + ' を作成済みにします。よろしいですか？')) return;
+    const order = kitchenOrders.find(o => o.id === id);
+    if (!order) return;
     kitchenOrders = kitchenOrders.filter(o => o.id !== id);
     saveKitchen();
     renderKitchen();
+    addHandoffOrder(order);
   }
   function formatElapsed(ms) {
     const secs = Math.max(0, Math.floor((Date.now() - ms) / 1000));
@@ -1437,7 +1540,7 @@
       return;
     }
     grid.innerHTML = kitchenOrders.map(o => `
-      <div class="kitchen-card" data-id="${o.id}" data-number="${o.number}">
+      <div class="kitchen-card" data-id="${o.id}" data-number="${o.number}" data-time="${o.time}">
         <div class="kitchen-card-top">
           <span class="order-num">注文 #${o.number}</span>
           <span class="order-elapsed">${formatElapsed(o.time)}</span>
@@ -1457,6 +1560,22 @@
       card.addEventListener('click', () => completeKitchenOrder(card.dataset.id, card.dataset.number));
     });
   }
+  function tickKitchenElapsed() {
+    if (!document.getElementById('page-kitchen').classList.contains('active')) return;
+    document.querySelectorAll('#kitchenGrid .kitchen-card').forEach(card => {
+      const t = parseInt(card.dataset.time, 10);
+      if (!isNaN(t)) {
+        const el = card.querySelector('.order-elapsed');
+        if (el) el.textContent = formatElapsed(t);
+      }
+    });
+  }
+  let kitchenTickTimer = null;
+  function startKitchenTick() {
+    if (kitchenTickTimer) return;
+    kitchenTickTimer = setInterval(tickKitchenElapsed, 1000);
+  }
+  startKitchenTick();
   let kitchenAutoRefreshTimer = null;
   function startKitchenAutoRefresh() {
     if (kitchenAutoRefreshTimer) return;
@@ -1467,6 +1586,96 @@
     }, 1000);
   }
   startKitchenAutoRefresh();
+
+  /* ---------- HANDOFF ---------- */
+  async function saveHandoff() {
+    await firebaseSet('handoff', { orders: handoffOrders });
+  }
+  async function refreshHandoffFromShared() {
+    const sharedHandoff = await firebaseGet('handoff');
+    if (sharedHandoff && typeof sharedHandoff === 'object') {
+      handoffOrders = Array.isArray(sharedHandoff.orders) ? sharedHandoff.orders : [];
+      renderHandoff();
+    }
+  }
+  function addHandoffOrder(kitchenOrder) {
+    handoffOrders.push({
+      id: kitchenOrder.id,
+      number: kitchenOrder.number,
+      time: Date.now(),
+      items: kitchenOrder.items
+    });
+    saveHandoff();
+    renderHandoff();
+  }
+  async function markDelivered(id) {
+    handoffOrders = handoffOrders.filter(o => o.id !== id);
+    saveHandoff();
+    renderHandoff();
+    const sharedRecords = await firebaseGet('records');
+    if (Array.isArray(sharedRecords)) records = sharedRecords;
+    const rec = records.find(r => r.orderId === id);
+    if (rec) {
+      rec.delivered = true;
+      saveRecords();
+      renderRecords();
+    }
+  }
+  function renderHandoff() {
+    const grid = document.getElementById('handoffGrid');
+    document.getElementById('handoffCountBadge').textContent = '未受渡 ' + handoffOrders.length + '件';
+    if (handoffOrders.length === 0) {
+      grid.innerHTML = '<div class="handoff-empty-state">未受渡の注文はありません</div>';
+      return;
+    }
+    grid.innerHTML = handoffOrders.map(o => `
+      <div class="handoff-card" data-id="${o.id}" data-time="${o.time}">
+        <span class="handoff-ready-badge">受渡待ち</span>
+        <div class="handoff-card-top">
+          <span class="order-num">注文 #${o.number}</span>
+          <span class="order-elapsed">${formatElapsed(o.time)}</span>
+        </div>
+        <div class="handoff-items">
+          ${(o.items || []).map(it => `
+            <div class="handoff-item-row">
+              <span>${it.name}</span>
+              <span class="handoff-qty">× ${it.qty}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div class="handoff-tap-hint">タップで渡しました</div>
+      </div>
+    `).join('');
+    grid.querySelectorAll('.handoff-card').forEach(card => {
+      card.addEventListener('click', () => markDelivered(card.dataset.id));
+    });
+  }
+  function tickHandoffElapsed() {
+    if (!document.getElementById('page-handoff').classList.contains('active')) return;
+    document.querySelectorAll('#handoffGrid .handoff-card').forEach(card => {
+      const t = parseInt(card.dataset.time, 10);
+      if (!isNaN(t)) {
+        const el = card.querySelector('.order-elapsed');
+        if (el) el.textContent = formatElapsed(t);
+      }
+    });
+  }
+  let handoffTickTimer = null;
+  function startHandoffTick() {
+    if (handoffTickTimer) return;
+    handoffTickTimer = setInterval(tickHandoffElapsed, 1000);
+  }
+  startHandoffTick();
+  let handoffAutoRefreshTimer = null;
+  function startHandoffAutoRefresh() {
+    if (handoffAutoRefreshTimer) return;
+    handoffAutoRefreshTimer = setInterval(() => {
+      if (document.getElementById('page-handoff').classList.contains('active')) {
+        refreshHandoffFromShared();
+      }
+    }, 1000);
+  }
+  startHandoffAutoRefresh();
 
   async function saveShift() {
     localSet('karaage-shift', JSON.stringify(shift));
@@ -1648,6 +1857,7 @@
       goToPage(btn.dataset.page);
       if (btn.dataset.page === 'records') refreshRecordsFromShared();
       if (btn.dataset.page === 'kitchen') refreshKitchenFromShared();
+      if (btn.dataset.page === 'handoff') refreshHandoffFromShared();
       if (btn.dataset.page === 'shift') refreshShiftFromShared();
       if (btn.dataset.page === 'regi') refreshMenuFromShared();
       if (btn.dataset.page === 'chat') refreshChatFromShared(true);
@@ -1779,6 +1989,7 @@
     }
 
     if (entries.length > 0) {
+      const orderId = newOrderId();
       records.unshift({
         time: new Date().toISOString(),
         items: entries.map(([id, it]) => {
@@ -1788,12 +1999,14 @@
         total,
         received: receivedNum,
         change: receivedNum - total,
-        staff: currentStaff
+        staff: currentStaff,
+        orderId,
+        delivered: false
       });
       saveRecords();
       recordsPage = 0;
       renderRecords();
-      addKitchenOrder(entries);
+      addKitchenOrder(entries, orderId);
       if (tutorialActive) handleTutorialAction('confirm');
     }
     Object.values(state.items).forEach(it => { it.qty = 0; });
@@ -1843,11 +2056,13 @@
         const timeStr = d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
         const itemsStr = Array.isArray(r.items) ? (r.items.map(i => `${i.name}×${i.qty}`).join('、') || 'なし') : 'なし';
         const staffStr = r.staff ? `　担当:${r.staff}` : '';
+        const deliveredHtml = r.delivered ? '<div class="delivered-badge">✅ 受け渡し済み</div>' : '';
         return `
           <div class="record-card" data-idx="${idx}">
             <div>
               <div class="items">${itemsStr}</div>
               <div class="sub">${dateStr} ${timeStr}　お預かり${fmt(r.received)}円${staffStr}<span class="edit-icon">　タップで編集</span></div>
+              ${deliveredHtml}
             </div>
             <div class="totals">
               <div class="total">${fmt(r.total)}円</div>
@@ -2001,7 +2216,9 @@
       total,
       received,
       change: received - total,
-      staff: records[editingRecordIndex].staff
+      staff: records[editingRecordIndex].staff,
+      orderId: records[editingRecordIndex].orderId,
+      delivered: records[editingRecordIndex].delivered
     };
     saveRecords();
     renderRecords();
