@@ -406,6 +406,68 @@
   .edit-icon { font-size: 11px; opacity: 0.5; }
   .empty-state { text-align: center; opacity: 0.5; padding: 40px 0; font-size: 14px; }
 
+  /* ================= KITCHEN PAGE ================= */
+  #page-kitchen { flex-direction: column; padding: 20px 26px; overflow-y: auto; }
+  .kitchen-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .kitchen-header h2 { font-size: 18px; margin: 0; }
+  .kitchen-count-badge {
+    font-size: 13px;
+    font-weight: 800;
+    color: #FFFFFF;
+    background: var(--red);
+    padding: 6px 16px;
+    border-radius: 999px;
+  }
+  .kitchen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 4px;
+  }
+  .kitchen-card {
+    background: var(--panel);
+    border: 2px solid var(--gold);
+    border-radius: 16px;
+    padding: 16px 18px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  .kitchen-card:active { transform: scale(0.96); opacity: 0.6; }
+  .kitchen-card .kitchen-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .kitchen-card .order-num {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--gold-dark);
+  }
+  .kitchen-card .order-elapsed {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--red-dark);
+    opacity: 0.8;
+  }
+  .kitchen-card .kitchen-items { display: flex; flex-direction: column; gap: 4px; }
+  .kitchen-card .kitchen-item-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .kitchen-card .kitchen-item-row .kitchen-qty { color: var(--red-dark); }
+  .kitchen-card .kitchen-tap-hint {
+    font-size: 11px;
+    opacity: 0.45;
+    text-align: right;
+    margin-top: 2px;
+  }
+  .kitchen-empty-state { text-align: center; opacity: 0.5; padding: 60px 0; font-size: 14px; }
+
   /* ================= SHIFT PAGE ================= */
   #page-shift { flex-direction: column; padding: 20px 26px; overflow-y: auto; }
   .shift-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
@@ -859,6 +921,7 @@
     <button class="tutorial-start-btn" id="tutorialStartBtn" style="margin-left:auto;">📘 チュートリアル</button>
     <div class="tabs">
       <button class="tab-btn active" data-page="regi">レジ</button>
+      <button class="tab-btn" data-page="kitchen">厨房</button>
       <button class="tab-btn" data-page="records">記録</button>
       <button class="tab-btn" data-page="shift">シフト表</button>
       <button class="tab-btn" data-page="chat">連絡</button>
@@ -912,6 +975,15 @@
         <div class="val" id="changeVal">0円</div>
       </div>
     </div>
+  </div>
+
+  <!-- ================= KITCHEN PAGE ================= -->
+  <div class="page" id="page-kitchen">
+    <div class="kitchen-header">
+      <h2>厨房</h2>
+      <span class="kitchen-count-badge" id="kitchenCountBadge">未作成 0件</span>
+    </div>
+    <div class="kitchen-grid" id="kitchenGrid"></div>
   </div>
 
   <!-- ================= RECORDS PAGE ================= -->
@@ -1072,6 +1144,8 @@
 
   const state = { items: {}, received: '' };
   let records = [];
+  let kitchenOrders = [];
+  let kitchenNextNumber = 1;
   function makeDefaultDay() {
     return {
       columns: ['レジ', 'キッチン', '', ''],
@@ -1257,6 +1331,11 @@
   async function loadData() {
     const sharedRecords = await firebaseGet('records');
     if (Array.isArray(sharedRecords)) records = sharedRecords;
+    const sharedKitchen = await firebaseGet('kitchen');
+    if (sharedKitchen && typeof sharedKitchen === 'object') {
+      kitchenOrders = Array.isArray(sharedKitchen.orders) ? sharedKitchen.orders : [];
+      kitchenNextNumber = typeof sharedKitchen.nextNumber === 'number' ? sharedKitchen.nextNumber : 1;
+    }
     const sharedShift = await firebaseGet('shift');
     if (sharedShift && typeof sharedShift === 'object') {
       shift = sharedShift;
@@ -1275,6 +1354,7 @@
     buildMenuGrid();
     render();
     renderRecords();
+    renderKitchen();
     renderShift();
     renderChat(true);
   }
@@ -1306,6 +1386,88 @@
     }, 5000);
   }
   startRecordsAutoRefresh();
+
+  /* ---------- KITCHEN ---------- */
+  async function saveKitchen() {
+    await firebaseSet('kitchen', { orders: kitchenOrders, nextNumber: kitchenNextNumber });
+  }
+  async function refreshKitchenFromShared() {
+    const sharedKitchen = await firebaseGet('kitchen');
+    if (sharedKitchen && typeof sharedKitchen === 'object') {
+      kitchenOrders = Array.isArray(sharedKitchen.orders) ? sharedKitchen.orders : [];
+      kitchenNextNumber = typeof sharedKitchen.nextNumber === 'number' ? sharedKitchen.nextNumber : 1;
+      renderKitchen();
+    }
+  }
+  function newKitchenOrderId() { return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function addKitchenOrder(entries) {
+    const number = kitchenNextNumber;
+    kitchenNextNumber += 1;
+    kitchenOrders.push({
+      id: newKitchenOrderId(),
+      number,
+      time: Date.now(),
+      items: entries.map(([id, it]) => {
+        const m = findMenuItem(id);
+        return { name: m ? m.name : '(削除済みメニュー)', qty: it.qty };
+      })
+    });
+    saveKitchen();
+    renderKitchen();
+  }
+  function completeKitchenOrder(id, number) {
+    if (!confirm('注文 #' + number + ' を作成済みにします。よろしいですか？')) return;
+    kitchenOrders = kitchenOrders.filter(o => o.id !== id);
+    saveKitchen();
+    renderKitchen();
+  }
+  function formatElapsed(ms) {
+    const secs = Math.max(0, Math.floor((Date.now() - ms) / 1000));
+    if (secs < 60) return secs + '秒前';
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return mins + '分前';
+    const hrs = Math.floor(mins / 60);
+    return hrs + '時間' + (mins % 60) + '分前';
+  }
+  function renderKitchen() {
+    const grid = document.getElementById('kitchenGrid');
+    document.getElementById('kitchenCountBadge').textContent = '未作成 ' + kitchenOrders.length + '件';
+    if (kitchenOrders.length === 0) {
+      grid.innerHTML = '<div class="kitchen-empty-state">未作成の注文はありません</div>';
+      return;
+    }
+    grid.innerHTML = kitchenOrders.map(o => `
+      <div class="kitchen-card" data-id="${o.id}" data-number="${o.number}">
+        <div class="kitchen-card-top">
+          <span class="order-num">注文 #${o.number}</span>
+          <span class="order-elapsed">${formatElapsed(o.time)}</span>
+        </div>
+        <div class="kitchen-items">
+          ${(o.items || []).map(it => `
+            <div class="kitchen-item-row">
+              <span>${it.name}</span>
+              <span class="kitchen-qty">× ${it.qty}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div class="kitchen-tap-hint">タップで作成済みにする</div>
+      </div>
+    `).join('');
+    grid.querySelectorAll('.kitchen-card').forEach(card => {
+      card.addEventListener('click', () => completeKitchenOrder(card.dataset.id, card.dataset.number));
+    });
+  }
+  let kitchenAutoRefreshTimer = null;
+  function startKitchenAutoRefresh() {
+    if (kitchenAutoRefreshTimer) return;
+    kitchenAutoRefreshTimer = setInterval(() => {
+      if (document.getElementById('page-kitchen').classList.contains('active')) {
+        refreshKitchenFromShared();
+      }
+    }, 1000);
+  }
+  startKitchenAutoRefresh();
+
   async function saveShift() {
     localSet('karaage-shift', JSON.stringify(shift));
     await firebaseSet('shift', shift);
@@ -1485,6 +1647,7 @@
     btn.addEventListener('click', () => {
       goToPage(btn.dataset.page);
       if (btn.dataset.page === 'records') refreshRecordsFromShared();
+      if (btn.dataset.page === 'kitchen') refreshKitchenFromShared();
       if (btn.dataset.page === 'shift') refreshShiftFromShared();
       if (btn.dataset.page === 'regi') refreshMenuFromShared();
       if (btn.dataset.page === 'chat') refreshChatFromShared(true);
@@ -1630,6 +1793,7 @@
       saveRecords();
       recordsPage = 0;
       renderRecords();
+      addKitchenOrder(entries);
       if (tutorialActive) handleTutorialAction('confirm');
     }
     Object.values(state.items).forEach(it => { it.qty = 0; });
