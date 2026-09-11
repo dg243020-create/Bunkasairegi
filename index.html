@@ -1655,7 +1655,6 @@
     renderKitchen();
   }
   async function completeKitchenOrder(id, number) {
-    if (!confirm('注文 #' + number + ' を作成済みにします。よろしいですか？')) return;
     // 保存前に最新の厨房データを取り直す(他端末の更新を上書きして消さないため)
     const sharedKitchen = await firebaseGet('kitchen');
     if (sharedKitchen && typeof sharedKitchen === 'object') {
