@@ -81,6 +81,20 @@
     color: var(--gold-dark);
   }
   .tab-btn:active { transform: scale(0.97); }
+  .tab-badge {
+    display: inline-block;
+    min-width: 18px;
+    height: 18px;
+    line-height: 18px;
+    padding: 0 5px;
+    margin-left: 6px;
+    border-radius: 999px;
+    background: var(--red);
+    color: #FFFFFF;
+    font-size: 11px;
+    font-weight: 800;
+    vertical-align: middle;
+  }
 
   .tutorial-start-btn {
     background: transparent;
@@ -1099,8 +1113,8 @@
     <button class="tutorial-start-btn" id="tutorialStartBtn" style="margin-left:auto;">📘 チュートリアル</button>
     <div class="tabs">
       <button class="tab-btn active" data-page="regi">レジ</button>
-      <button class="tab-btn" data-page="kitchen">厨房</button>
-      <button class="tab-btn" data-page="handoff">受け渡し</button>
+      <button class="tab-btn" data-page="kitchen">厨房<span class="tab-badge" id="kitchenTabBadge" style="display:none;"></span></button>
+      <button class="tab-btn" data-page="handoff">受け渡し<span class="tab-badge" id="handoffTabBadge" style="display:none;"></span></button>
       <button class="tab-btn" data-page="records">記録</button>
       <button class="tab-btn" data-page="shift">シフト表</button>
       <button class="tab-btn" data-page="chat">連絡</button>
@@ -1663,9 +1677,19 @@
     const hrs = Math.floor(mins / 60);
     return hrs + '時間' + (mins % 60) + '分前';
   }
+  function updateKitchenTabBadge() {
+    const badge = document.getElementById('kitchenTabBadge');
+    if (kitchenOrders.length > 0) {
+      badge.textContent = kitchenOrders.length;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
   function renderKitchen() {
     const grid = document.getElementById('kitchenGrid');
     document.getElementById('kitchenCountBadge').textContent = '未作成 ' + kitchenOrders.length + '件';
+    updateKitchenTabBadge();
     if (kitchenOrders.length === 0) {
       grid.innerHTML = '<div class="kitchen-empty-state">未作成の注文はありません</div>';
       return;
@@ -1710,11 +1734,10 @@
   let kitchenAutoRefreshTimer = null;
   function startKitchenAutoRefresh() {
     if (kitchenAutoRefreshTimer) return;
+    // 厨房ページを見ていない端末でもタブバッジが更新されるよう、常時バックグラウンドで取得する
     kitchenAutoRefreshTimer = setInterval(() => {
-      if (document.getElementById('page-kitchen').classList.contains('active')) {
-        refreshKitchenFromShared();
-      }
-    }, 1000);
+      refreshKitchenFromShared();
+    }, 1500);
   }
   startKitchenAutoRefresh();
 
@@ -1866,9 +1889,19 @@
       renderRecords();
     }
   }
+  function updateHandoffTabBadge() {
+    const badge = document.getElementById('handoffTabBadge');
+    if (handoffOrders.length > 0) {
+      badge.textContent = handoffOrders.length;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
   function renderHandoff() {
     const grid = document.getElementById('handoffGrid');
     document.getElementById('handoffCountBadge').textContent = '未受渡 ' + handoffOrders.length + '件';
+    updateHandoffTabBadge();
     if (handoffOrders.length === 0) {
       grid.innerHTML = '<div class="handoff-empty-state">未受渡の注文はありません</div>';
       return;
@@ -1914,11 +1947,10 @@
   let handoffAutoRefreshTimer = null;
   function startHandoffAutoRefresh() {
     if (handoffAutoRefreshTimer) return;
+    // 受け渡しページを見ていない端末でもタブバッジが更新されるよう、常時バックグラウンドで取得する
     handoffAutoRefreshTimer = setInterval(() => {
-      if (document.getElementById('page-handoff').classList.contains('active')) {
-        refreshHandoffFromShared();
-      }
-    }, 1000);
+      refreshHandoffFromShared();
+    }, 1500);
   }
   startHandoffAutoRefresh();
 
