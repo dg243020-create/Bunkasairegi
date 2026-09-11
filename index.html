@@ -494,16 +494,16 @@
     border-radius: 12px;
     padding: 4px 0;
   }
-  .kitchen-timer-presets { display: flex; gap: 6px; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
+  .kitchen-timer-presets { display: flex; gap: 10px; justify-content: center; margin: 10px 0; flex-wrap: wrap; }
   .timer-preset-btn {
     background: var(--panel-2);
     border: none;
     color: var(--gold-dark);
     font-family: inherit;
     font-weight: 700;
-    font-size: 11px;
-    padding: 5px 10px;
-    border-radius: 8px;
+    font-size: 15px;
+    padding: 12px 22px;
+    border-radius: 12px;
     cursor: pointer;
   }
   .timer-preset-btn:active { transform: scale(0.95); }
@@ -1169,11 +1169,8 @@
       </div>
       <div class="kitchen-timer-display" id="kitchenTimerDisplay">00:00</div>
       <div class="kitchen-timer-presets">
-        <button type="button" class="timer-preset-btn" data-sec="60">1分</button>
-        <button type="button" class="timer-preset-btn" data-sec="180">3分</button>
+        <button type="button" class="timer-preset-btn" data-sec="30">30秒</button>
         <button type="button" class="timer-preset-btn" data-sec="270">4分半</button>
-        <button type="button" class="timer-preset-btn" data-sec="300">5分</button>
-        <button type="button" class="timer-preset-btn" data-sec="600">10分</button>
       </div>
       <div class="kitchen-timer-custom">
         <input type="number" inputmode="numeric" id="timerCustomMin" placeholder="0" min="0">
