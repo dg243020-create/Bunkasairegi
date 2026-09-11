@@ -1619,7 +1619,13 @@
       renderKitchen();
     }
   }
-  function addKitchenOrder(entries, orderId) {
+  async function addKitchenOrder(entries, orderId) {
+    // 保存前に最新の厨房データを取り直す(他端末が追加・完了した注文を上書きして消さないため)
+    const sharedKitchen = await firebaseGet('kitchen');
+    if (sharedKitchen && typeof sharedKitchen === 'object') {
+      kitchenOrders = Array.isArray(sharedKitchen.orders) ? sharedKitchen.orders : [];
+      kitchenNextNumber = typeof sharedKitchen.nextNumber === 'number' ? sharedKitchen.nextNumber : 1;
+    }
     const number = kitchenNextNumber;
     kitchenNextNumber += 1;
     kitchenOrders.push({
@@ -1631,15 +1637,21 @@
         return { name: m ? m.name : '(削除済みメニュー)', qty: it.qty };
       })
     });
-    saveKitchen();
+    await saveKitchen();
     renderKitchen();
   }
-  function completeKitchenOrder(id, number) {
+  async function completeKitchenOrder(id, number) {
     if (!confirm('注文 #' + number + ' を作成済みにします。よろしいですか？')) return;
+    // 保存前に最新の厨房データを取り直す(他端末の更新を上書きして消さないため)
+    const sharedKitchen = await firebaseGet('kitchen');
+    if (sharedKitchen && typeof sharedKitchen === 'object') {
+      kitchenOrders = Array.isArray(sharedKitchen.orders) ? sharedKitchen.orders : [];
+      kitchenNextNumber = typeof sharedKitchen.nextNumber === 'number' ? sharedKitchen.nextNumber : 1;
+    }
     const order = kitchenOrders.find(o => o.id === id);
-    if (!order) return;
+    if (!order) { renderKitchen(); return; }
     kitchenOrders = kitchenOrders.filter(o => o.id !== id);
-    saveKitchen();
+    await saveKitchen();
     renderKitchen();
     addHandoffOrder(order);
   }
@@ -1821,19 +1833,29 @@
       renderHandoff();
     }
   }
-  function addHandoffOrder(kitchenOrder) {
+  async function addHandoffOrder(kitchenOrder) {
+    // 保存前に最新の受け渡しデータを取り直す(他端末の更新を上書きして消さないため)
+    const sharedHandoff = await firebaseGet('handoff');
+    if (sharedHandoff && typeof sharedHandoff === 'object') {
+      handoffOrders = Array.isArray(sharedHandoff.orders) ? sharedHandoff.orders : [];
+    }
     handoffOrders.push({
       id: kitchenOrder.id,
       number: kitchenOrder.number,
       time: Date.now(),
       items: kitchenOrder.items
     });
-    saveHandoff();
+    await saveHandoff();
     renderHandoff();
   }
   async function markDelivered(id) {
+    // 保存前に最新の受け渡しデータを取り直す(他端末の更新を上書きして消さないため)
+    const sharedHandoff = await firebaseGet('handoff');
+    if (sharedHandoff && typeof sharedHandoff === 'object') {
+      handoffOrders = Array.isArray(sharedHandoff.orders) ? sharedHandoff.orders : [];
+    }
     handoffOrders = handoffOrders.filter(o => o.id !== id);
-    saveHandoff();
+    await saveHandoff();
     renderHandoff();
     const sharedRecords = await firebaseGet('records');
     if (Array.isArray(sharedRecords)) records = sharedRecords;
@@ -2199,7 +2221,7 @@
   });
   document.getElementById('btn1000').addEventListener('click', () => { state.received = '1000'; render(); });
 
-  document.getElementById('changeBlock').addEventListener('click', () => {
+  document.getElementById('changeBlock').addEventListener('click', async () => {
     const entries = Object.entries(state.items).filter(([, it]) => it.qty > 0);
     const total = getTotal();
     const receivedNum = state.received === '' ? 0 : parseInt(state.received, 10);
@@ -2213,6 +2235,9 @@
 
     if (entries.length > 0) {
       const orderId = newOrderId();
+      // 保存前に最新の会計記録を取り直す(他端末の記録を上書きして消さないため)
+      const sharedRecords = await firebaseGet('records');
+      if (Array.isArray(sharedRecords)) records = sharedRecords;
       records.unshift({
         time: new Date().toISOString(),
         items: entries.map(([id, it]) => {
@@ -2226,10 +2251,10 @@
         orderId,
         delivered: false
       });
-      saveRecords();
+      await saveRecords();
       recordsPage = 0;
       renderRecords();
-      addKitchenOrder(entries, orderId);
+      await addKitchenOrder(entries, orderId);
       if (tutorialActive) handleTutorialAction('confirm');
     }
     Object.values(state.items).forEach(it => { it.qty = 0; });
